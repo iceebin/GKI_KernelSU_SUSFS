@@ -1,0 +1,45 @@
+name: 自动同步上游
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 每天 UTC 00:00 执行
+  workflow_dispatch:     # 允许手动触发
+
+permissions:
+  contents: write
+
+env:
+  UPSTREAM_REPO: https://github.com/zzh20188/GKI_KernelSU_SUSFS.git
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: dev
+
+      - name: 配置 Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: 添加上游仓库
+        run: git remote add upstream ${{ env.UPSTREAM_REPO }}
+
+      - name: 获取上游更新
+        run: git fetch upstream
+
+      - name: 同步 dev 分支
+        run: |
+          if git merge upstream/dev --no-edit; then
+            git push origin dev
+            echo "✅ 成功同步上游 dev 分支"
+          else
+            git merge --abort
+            echo "❌ 合并冲突，请手动解决后重新同步"
+            exit 1
+          fi
